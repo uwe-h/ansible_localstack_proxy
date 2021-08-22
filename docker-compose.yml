@@ -1,0 +1,42 @@
+version: "3.8"
+
+services:
+  localstack:
+    container_name: "${LOCALSTACK_DOCKER_NAME-localstack_main}"
+    image: localstack/localstack
+    ports:
+      - "53:53"
+      - "53:53/udp"
+      - "443:443"
+      - "4566:4566"
+      - "4571:4571"
+      - "${PORT_WEB_UI-8080}:${PORT_WEB_UI-8080}"
+    expose:
+      - 53
+      - 443
+      - 4566
+      - 4571
+    environment:
+      - SERVICES=s3,ssm,kms,dynamodb
+      - DATA_DIR=/tmp/localstack
+      - LS_LOG=trace
+  httpproxy:
+    expose:
+      - 8080
+    depends_on:
+      - localstack
+    build:
+      dockerfile: httpproxy/Dockerfile
+      context: .
+  ec2sim:
+    depends_on:
+      - localstack
+      - httpproxy
+    environment:
+      HTTPS_PROXY: https://httpproxy:8080
+      REQUESTS_CA_BUNDLE: /etc/ssl/certs/ca-certificates.crt
+    volumes:
+      - $PWD/ansible:/ansible
+    build:
+      context: .
+      dockerfile: ec2/Dockerfile
